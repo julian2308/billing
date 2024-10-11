@@ -6,24 +6,24 @@ import java.util.ArrayList;
 
 public class InventoryEvent {
 
-    private String orderId;
+    private Integer orderId;
     private ArrayList<SelectedProductDTO> productList;
     private String status;
 
     public InventoryEvent() {
     }
 
-    public InventoryEvent(String orderId, ArrayList<SelectedProductDTO> productList, String status) {
+    public InventoryEvent(Integer orderId, ArrayList<SelectedProductDTO> productList, String status) {
         this.orderId = orderId;
         this.productList = productList;
         this.status = status;
     }
 
-    public String getOrderId() {
+    public Integer getOrderId() {
         return orderId;
     }
 
-    public void setOrderId(String orderId) {
+    public void setOrderId(Integer orderId) {
         this.orderId = orderId;
     }
 

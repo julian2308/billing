@@ -1,14 +1,16 @@
 package kafka.Billing;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kafka.Billing.config.KafkaProducerConfig;
 import kafka.Billing.dto.SelectedProductDTO;
-import kafka.Billing.entity.Cliente;
-import kafka.Billing.entity.InventoryEvent;
-import kafka.Billing.entity.Producto;
+import kafka.Billing.entity.*;
 import kafka.Billing.repository.ProductoRepository;
 import kafka.Billing.service.ClienteService;
 import kafka.Billing.service.ProductoService;
+import kafka.Billing.service.VentaService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -17,10 +19,24 @@ import java.util.ArrayList;
 public class InventoryEventProcessor {
 
 
+    private Float finalAmount;
+    private Integer orderId;
+    private Integer clienteId;
+
+
     @Autowired
     private ProductoService productoService;
     @Autowired
     private ClienteService clienteService;
+    @Autowired
+    private VentaService ventaService;
+
+    private final KafkaProducerConfig kafkaProducerConfig;
+
+    @Autowired
+    public InventoryEventProcessor(KafkaProducerConfig kafkaProducerConfig) {
+        this.kafkaProducerConfig = kafkaProducerConfig;
+    }
 
     public static InventoryEvent parseInventoryEvent(String jsonString) {
         ObjectMapper objectMapper = new ObjectMapper();
@@ -45,20 +61,39 @@ public class InventoryEventProcessor {
 
     public boolean enoughMoneyToBuyProducts(InventoryEvent inventoryEvent){
         Float finalAmount = calculateFinalAmount(inventoryEvent.getProductList());
-        Double clienteMoney = getClienteMoney(inventoryEvent.getOrderId());
+        this.finalAmount = finalAmount;
+        Venta venta = ventaService.getClienteFromOrderId(inventoryEvent.getOrderId());
+        System.out.println("este es mi order id " + inventoryEvent.getOrderId());
+        Integer clienteId = venta.getIdCliente().getId();
+        this.clienteId = clienteId;
+        this.orderId = inventoryEvent.getOrderId();
+        Double clienteMoney = getClienteMoney(clienteId);
         return clienteMoney >= finalAmount;
     }
 
-    private Double getClienteMoney(String clienteId){
-        Cliente cliente = clienteService.getClienteById(Integer.parseInt(clienteId));
+    private Double getClienteMoney(Integer clienteId){
+        Cliente cliente = clienteService.getClienteById(clienteId);
         return cliente.getDinero_disponible();
 
     }
 
     public String makePurchase(InventoryEvent inventoryEvent){
+        String status = "failed";
+        String topic = "PaymentFailed";
         if (enoughMoneyToBuyProducts(inventoryEvent)){
-            return "compra realizada";
+            status="success";
+            topic = "PaymentSuccessful";
         }
-        return "No se pudo realizar la compra";
+
+        sendTopic(topic, status);
+
+        return status;
     }
+
+    private void sendTopic(String topic, String status){
+        kafkaProducerConfig.kafkaTemplate().send(topic, new Payment(this.orderId, this.clienteId, this.finalAmount,status));
+
+    }
+
+
 }

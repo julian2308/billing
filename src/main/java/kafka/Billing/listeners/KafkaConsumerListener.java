@@ -28,6 +28,5 @@ public class KafkaConsumerListener {
         InventoryEvent event1 = parseInventoryEvent(greeting);
         LOGGER.info(event1.toString());
         System.out.println(inventoryEventProcessor.makePurchase(event1));
-
     }
 }
